@@ -1,0 +1,37 @@
+.searchmatch {
+	font-weight: bold;
+}
+
+body {
+	background-color: #123;
+	font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+.main {
+	display: flex;
+	flex-direction: column;
+	max-width: 600px;
+	margin: auto;
+	padding: 15px;
+	background-color: whitesmoke;
+}
+
+nav ul {
+	display: flex;
+	flex-direction: row;
+	list-style-type: none; /* Remove bullets */
+	padding: 0; /* Remove padding */
+	margin: 0; /* Remove margins */
+}
+
+nav ul li {
+	margin-right: 10px;
+	padding: 10px;
+	color: white;
+	background-color: #123;
+	cursor: pointer;
+}
+
+.language-selector-active {
+	background-color: #0f7b59;
+}

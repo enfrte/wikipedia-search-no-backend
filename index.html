@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<meta http-equiv="X-UA-Compatible" content="IE=edge">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+	<script defer src="alpine-js-3.js"></script>
+	<link rel="stylesheet" href="style.css?20210114">
+
+
+	<title>WikiP Search</title>
+</head>
+<body>
+
+<div class="main">
+<h3>Conlang examples from Wikipedia</h3> 
+
+
+<div x-data="alpineInstance()">
+
+	<p>Change language</p>
+
+	<nav>
+		<ul>
+			<li 
+				x-on:click="selected_locale = 'eo'; wikipedia_address_locale = 'https://eo.wikipedia.org/w/api.php?action=query&format=json&list=search&srsearch='" 
+				x-bind:class="{ 'language-selector-active': selected_locale === 'eo' }">
+				Esperanto
+			</li>
+			<li 
+				x-on:click="selected_locale = 'io'; wikipedia_address_locale = 'https://io.wikipedia.org/w/api.php?action=query&format=json&list=search&srsearch='" 
+				x-bind:class="{ 'language-selector-active': selected_locale === 'io' }">
+				Ido
+			</li>
+			<li 
+				x-on:click="selected_locale = 'lfn'; wikipedia_address_locale = 'https://lfn.wikipedia.org/w/api.php?action=query&format=json&list=search&srsearch='" 
+				x-bind:class="{ 'language-selector-active': selected_locale === 'lfn' }">
+				Elefen
+			</li>
+		</ul>
+	</nav>
+	
+	<p>Search for a word "or phrase" and hit return.</p>
+
+	<form x-on:submit.prevent="fetchData">
+		<input x-model="search" type="text">
+	</form>
+
+	<template x-if="!error">
+		<div>
+			<p>
+				<span>Total hits:</span>
+				<span x-text="fetch_result.query.searchinfo.totalhits"></span>
+			</p>
+			<div x-show="fetch_result.query.searchinfo.totalhits > 0">
+				<div>
+				<template x-for="(search, index) in fetch_result.query.search" :key="index">
+					<div>
+						<h4 x-text="search.title"></h4>
+						<p x-html="search.snippet"></p>
+						<hr>
+					</div>
+				</template>
+				</div>
+			</div>
+		</div>
+	</template>
+	<template x-if="error">
+		<p>
+			<span>Error:</span>
+			<span x-text="error"></span>
+		</p>
+	</template>
+
+
+</div>
+
+<script>
+function alpineInstance() {		
+	return {
+		search: '',
+		selected_locale: 'eo',
+		wikipedia_address_locale: 'https://eo.wikipedia.org/w/api.php?action=query&format=json&list=search&srsearch=',
+		fetch_result: { query: { searchinfo: { totalhits: 0 } } },
+		fetchData: function () { 
+			//console.log(this.search);
+			return fetch( this.wikipedia_address_locale + this.search + '&srwhat=text&origin=*' )
+				.then(response => response.json())
+				.then(data => {
+					//console.log(data);
+					this.error = false;
+					if (data.hasOwnProperty('error')) { // Handle wikipedia returned error state
+						this.fetch_result.query.searchinfo.totalhits = 0;
+						return (this.error = this.errors.WIKIP_ERR);
+					}
+					return (this.fetch_result = data);
+				})
+				.catch(error => {
+					this.error = this.errors.FETCH_ERR;
+					this.fetch_result.query.searchinfo.totalhits = 0;
+				});
+		},
+		error: false,
+		errors: {
+			WIKIP_ERR: "There was an error retrieving the results from WikiPedia.",
+			FETCH_ERR: "There was an error retrieving the connecting to the WikiPedia."
+		}
+	}
+}
+</script>
+
+
+
+</div><!-- End div.main -->
+</body>
+</html>
