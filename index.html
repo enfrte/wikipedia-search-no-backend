@@ -24,6 +24,11 @@
 	<nav>
 		<ul>
 			<li 
+				x-on:click="selected_locale = 'ie'; wikipedia_address_locale = 'https://ie.wikipedia.org/w/api.php?action=query&format=json&list=search&srsearch='" 
+				x-bind:class="{ 'language-selector-active': selected_locale === 'ie' }">
+				Interlingue
+			</li>
+			<li 
 				x-on:click="selected_locale = 'eo'; wikipedia_address_locale = 'https://eo.wikipedia.org/w/api.php?action=query&format=json&list=search&srsearch='" 
 				x-bind:class="{ 'language-selector-active': selected_locale === 'eo' }">
 				Esperanto
@@ -80,8 +85,8 @@
 function alpineInstance() {		
 	return {
 		search: '',
-		selected_locale: 'eo',
-		wikipedia_address_locale: 'https://eo.wikipedia.org/w/api.php?action=query&format=json&list=search&srsearch=',
+		selected_locale: 'ie',
+		wikipedia_address_locale: 'https://ie.wikipedia.org/w/api.php?action=query&format=json&list=search&srsearch=',
 		fetch_result: { query: { searchinfo: { totalhits: 0 } } },
 		fetchData: function () { 
 			//console.log(this.search);
