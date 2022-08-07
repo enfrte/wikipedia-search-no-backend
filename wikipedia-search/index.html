@@ -24,22 +24,22 @@
 	<nav>
 		<ul>
 			<li 
-				x-on:click="selected_locale = 'ie'; wikipedia_address_locale = 'https://ie.wikipedia.org/w/api.php?action=query&format=json&list=search&srsearch='" 
+				x-on:click="selected_locale = 'ie'; wikipedia_address_locale = 'https://ie.wikipedia.org/w/api.php?action=query&format=json&list=search&srlimit=500&srsearch='" 
 				x-bind:class="{ 'language-selector-active': selected_locale === 'ie' }">
 				Interlingue
 			</li>
 			<li 
-				x-on:click="selected_locale = 'eo'; wikipedia_address_locale = 'https://eo.wikipedia.org/w/api.php?action=query&format=json&list=search&srsearch='" 
+				x-on:click="selected_locale = 'eo'; wikipedia_address_locale = 'https://eo.wikipedia.org/w/api.php?action=query&format=json&list=search&srlimit=500&srsearch='" 
 				x-bind:class="{ 'language-selector-active': selected_locale === 'eo' }">
 				Esperanto
 			</li>
 			<li 
-				x-on:click="selected_locale = 'io'; wikipedia_address_locale = 'https://io.wikipedia.org/w/api.php?action=query&format=json&list=search&srsearch='" 
+				x-on:click="selected_locale = 'io'; wikipedia_address_locale = 'https://io.wikipedia.org/w/api.php?action=query&format=json&list=search&srlimit=500&srsearch='" 
 				x-bind:class="{ 'language-selector-active': selected_locale === 'io' }">
 				Ido
 			</li>
 			<li 
-				x-on:click="selected_locale = 'lfn'; wikipedia_address_locale = 'https://lfn.wikipedia.org/w/api.php?action=query&format=json&list=search&srsearch='" 
+				x-on:click="selected_locale = 'lfn'; wikipedia_address_locale = 'https://lfn.wikipedia.org/w/api.php?action=query&format=json&list=search&srlimit=500&srsearch='" 
 				x-bind:class="{ 'language-selector-active': selected_locale === 'lfn' }">
 				Elefen
 			</li>
@@ -57,6 +57,7 @@
 			<p>
 				<span>Total hits:</span>
 				<span x-text="fetch_result.query.searchinfo.totalhits"></span>
+				<span> (max limit 500)</span>
 			</p>
 			<div x-show="fetch_result.query.searchinfo.totalhits > 0">
 				<div>
@@ -86,7 +87,7 @@ function alpineInstance() {
 	return {
 		search: '',
 		selected_locale: 'ie',
-		wikipedia_address_locale: 'https://ie.wikipedia.org/w/api.php?action=query&format=json&list=search&srsearch=',
+		wikipedia_address_locale: 'https://ie.wikipedia.org/w/api.php?action=query&format=json&list=search&srlimit=500&srsearch=',
 		fetch_result: { query: { searchinfo: { totalhits: 0 } } },
 		fetchData: function () { 
 			//console.log(this.search);
