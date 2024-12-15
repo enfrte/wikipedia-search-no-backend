@@ -24,9 +24,14 @@
 	<nav>
 		<ul>
 			<li 
+				x-on:click="selected_locale = 'ia'; wikipedia_address_locale = 'https://ia.wikipedia.org/w/api.php?action=query&format=json&list=search&srlimit=500&srsearch='" 
+				x-bind:class="{ 'language-selector-active': selected_locale === 'ia' }">
+				Interlingua
+			</li>
+			<li 
 				x-on:click="selected_locale = 'ie'; wikipedia_address_locale = 'https://ie.wikipedia.org/w/api.php?action=query&format=json&list=search&srlimit=500&srsearch='" 
 				x-bind:class="{ 'language-selector-active': selected_locale === 'ie' }">
-				Interlingue
+				Interlingue (Occidental)
 			</li>
 			<li 
 				x-on:click="selected_locale = 'eo'; wikipedia_address_locale = 'https://eo.wikipedia.org/w/api.php?action=query&format=json&list=search&srlimit=500&srsearch='" 
@@ -86,8 +91,8 @@
 function alpineInstance() {		
 	return {
 		search: '',
-		selected_locale: 'ie',
-		wikipedia_address_locale: 'https://ie.wikipedia.org/w/api.php?action=query&format=json&list=search&srlimit=500&srsearch=',
+		selected_locale: 'ia',
+		wikipedia_address_locale: 'https://ia.wikipedia.org/w/api.php?action=query&format=json&list=search&srlimit=500&srsearch=',
 		fetch_result: { query: { searchinfo: { totalhits: 0 } } },
 		fetchData: function () { 
 			//console.log(this.search);
