@@ -18,7 +18,7 @@
 
 <div x-data="alpineInstance()">
 
-	<p x-show="savedLanguages.length > '0'">Recently searched</p>
+	<p x-show="savedLanguages.length > '0'">Select recently searched</p>
 
 	<nav>
 		<ul>
@@ -35,7 +35,7 @@
 		</ul>
 	</nav>
 
-	<p class="" x-show="savedLanguages.length > '0'"><a @click="clearLocalStorage" href="#">Clear recently searched languages</a></p>
+	<p class="" x-show="savedLanguages.length > '0'"><small><a @click="clearLocalStorage" href="#">Clear recently searched languages</a></small></p>
 
 	<p>Select Wikipedia Language</p>
 
