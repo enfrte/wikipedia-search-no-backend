@@ -6,52 +6,36 @@
 	<meta name="viewport" content="width=device-width, initial-scale=1.0">
 
 	<script defer src="../js/alpine.min.js"></script>
-	<link rel="stylesheet" href="style.css?20210114">
-
+	<link rel="stylesheet" href="style.css?20250101">
 
 	<title>WikiP Search</title>
 </head>
 <body>
 
 <div class="main">
-<h3>Conlang examples from Wikipedia</h3> 
+<h3>Language examples from Wikipedia</h3> 
 
 
 <div x-data="alpineInstance()">
 
-	<p>Change language</p>
+	<p x-show="savedLanguages.length > '0'">Recently searched</p>
 
 	<nav>
 		<ul>
-			<li 
-				x-on:click="selected_locale = 'ia'; wikipedia_address_locale = 'https://ia.wikipedia.org/w/api.php?action=query&format=json&list=search&srlimit=500&srsearch='" 
-				x-bind:class="{ 'language-selector-active': selected_locale === 'ia' }">
-				Interlingua
-			</li>
-			<li 
-				x-on:click="selected_locale = 'ie'; wikipedia_address_locale = 'https://ie.wikipedia.org/w/api.php?action=query&format=json&list=search&srlimit=500&srsearch='" 
-				x-bind:class="{ 'language-selector-active': selected_locale === 'ie' }">
-				Interlingue (Occidental)
-			</li>
-			<li 
-				x-on:click="selected_locale = 'eo'; wikipedia_address_locale = 'https://eo.wikipedia.org/w/api.php?action=query&format=json&list=search&srlimit=500&srsearch='" 
-				x-bind:class="{ 'language-selector-active': selected_locale === 'eo' }">
-				Esperanto
-			</li>
-			<li 
-				x-on:click="selected_locale = 'io'; wikipedia_address_locale = 'https://io.wikipedia.org/w/api.php?action=query&format=json&list=search&srlimit=500&srsearch='" 
-				x-bind:class="{ 'language-selector-active': selected_locale === 'io' }">
-				Ido
-			</li>
-			<li 
-				x-on:click="selected_locale = 'lfn'; wikipedia_address_locale = 'https://lfn.wikipedia.org/w/api.php?action=query&format=json&list=search&srlimit=500&srsearch='" 
-				x-bind:class="{ 'language-selector-active': selected_locale === 'lfn' }">
-				Elefen
-			</li>
+			<!-- Iterate savedLanguages and show as li buttons -->
+			<template x-for="lang in savedLanguages" :key="lang.selected_locale">
+				<li 
+					x-on:click="
+						selected_locale = lang.selected_locale; 
+						wikipedia_address_locale = lang.wikipedia_address_locale;" 
+					x-bind:class="{ 'language-selector-active': selected_locale === lang.selected_locale }">
+					<span x-text="getLanguageName(lang.selected_locale)"></span>
+				</li>
+			</template>
 		</ul>
 	</nav>
 
-	<p><a @click="clearLocalStorage" href="#">Clear saved languages</a></p>
+	<p class="" x-show="savedLanguages.length > '0'"><a @click="clearLocalStorage" href="#">Clear recently searched languages</a></p>
 
 	<p>Select Wikipedia Language</p>
 
@@ -60,17 +44,20 @@
 		placeholder="Filter languages" 
 		x-model="searchLanguages" 
 		class="border p-2 rounded mb-4"
-		@keyup="updateWikipediaAddressLocale"
+		@input="filterOptions()"
 	/>
-	= 	
-	<select x-ref="selected_locale_ref" x-model="selected_locale" x-on:change="wikipedia_address_locale = 'https://' + selected_locale + '.wikipedia.org/w/api.php?action=query&format=json&list=search&srlimit=500&srsearch='">
-		<option selected disabled x-show="searchLanguages === ''">Select a language</option>
+	<span>&#8680;</span>	
+	<select x-ref="selected_locale_ref" x-model="selected_locale" x-on:change="setWikipediaAddressLocale()">
+		<option value="" disabled>Select a language</option>
+		<!-- Decide to show complete or filtered list of languages -->
 		<template x-for="wiki in filteredListOfWikipedias" :key="wiki.code">
 			<option :value="wiki.code" x-text="wiki.lang"></option>
 		</template>
 	</select>
 	
 	<p>Search for a word "or phrase" and hit return.</p>
+
+	<!-- <p>Debug: <span x-text="selected_locale"></span></p> -->
 
 	<form x-on:submit.prevent="fetchData">
 		<input x-model="search" type="text">
@@ -118,42 +105,63 @@ function alpineInstance() {
 		wikipedia_address_locale: '',
 		fetch_result: { query: { searchinfo: { totalhits: 0 } } },
 		listOfWikipedias: listOfWikipedias,
+		filteredListOfWikipedias: listOfWikipedias,
 		savedLanguages: (JSON.parse(localStorage.getItem('savedLanguages')) || []),
+		selected_locale_ref: '',
 		error: false,
 		errors: {
 			WIKIP_ERR: "There was an error retrieving the results from WikiPedia.",
-			FETCH_ERR: "There was an error retrieving the connecting to the WikiPedia."
+			FETCH_ERR: "There was an error connecting to the WikiPedia.",
+			SELECTED_LOCAL_MISSING: "Language not found."
 		},
-		selected_locale_ref: '',
 
 		fetchData: function () { 
-			//console.log(this.search);
+			this.setWikipediaAddressLocale();
+
 			return fetch( this.wikipedia_address_locale + this.search + '&srwhat=text&origin=*' )
 				.then(response => response.json())
 				.then(data => {
 					this.error = false;
+
 					if (data.hasOwnProperty('error')) { // Handle wikipedia returned error state
 						this.fetch_result.query.searchinfo.totalhits = 0;
 						return (this.error = this.errors.WIKIP_ERR);
 					}
+
+					this.updateWikipediaAddressLocale();
 					return (this.fetch_result = data);
 				})
 				.catch(error => {
 					this.error = this.errors.FETCH_ERR;
 					this.fetch_result.query.searchinfo.totalhits = 0;
-				});
-		},
-		get filteredListOfWikipedias() {
-			if (!this.searchLanguages) return this.listOfWikipedias;
-			return this.listOfWikipedias.filter(wiki =>
-				wiki.lang.toLowerCase().includes(this.searchLanguages.toLowerCase())
+				}
 			);
+		},
+		filterOptions() {
+			if (this.searchLanguages.trim() === '') {
+				// Set defaults
+				this.filteredListOfWikipedias = listOfWikipedias;
+				this.selected_locale = ''; 
+				this.wikipedia_address_locale = '';
+			} 
+			else {
+				const matches = this.listOfWikipedias.filter(option =>
+					option.lang.toLowerCase().includes(this.searchLanguages.toLowerCase())
+				);
+				this.filteredListOfWikipedias = matches;
+
+				// Automatically select the first match if found
+				if (matches.length > 0) {
+					this.selected_locale = matches[0].code;
+				} else {
+					this.selected_locale = ''; // Revert to default
+				}
+			}
 		},
 		updateWikipediaAddressLocale() {
             this.selected_locale = this.$refs.selected_locale_ref.value;
 			this.wikipedia_address_locale = 'https://' + this.selected_locale + '.wikipedia.org/w/api.php?action=query&format=json&list=search&srlimit=500&srsearch=';
 			this.saveToLocalStorage();
-			console.log(JSON.parse(localStorage.getItem('savedLanguages')));
         },
 		saveToLocalStorage() {
 			// let savedLanguages = JSON.parse(localStorage.getItem('savedLanguages')) || [];
@@ -172,6 +180,18 @@ function alpineInstance() {
 		clearLocalStorage() {
 			localStorage.removeItem('savedLanguages');
 			this.savedLanguages = [];
+		},
+		getLanguageName(code) {
+			const lang = this.listOfWikipedias.find(wiki => wiki.code === code);
+			return lang ? lang.lang : 'Error: Unknown language';
+		},
+		setWikipediaAddressLocale() {
+			if (this.selected_locale === '') {
+				this.error = this.errors.SELECTED_LOCAL_MISSING;
+				return;
+			}
+
+			this.wikipedia_address_locale = 'https://' + this.selected_locale + '.wikipedia.org/w/api.php?action=query&format=json&list=search&srlimit=500&srsearch=';
 		}
 	}
 }
@@ -182,13 +202,13 @@ const listOfWikipedias = [
 {"lang":"Adyghe","code":"ady"},
 {"lang":"Afrikaans","code":"af"},
 {"lang":"Albanian","code":"sq"},
-{"lang":"AlemannicGerman","code":"als"},
+{"lang":"Alemannic German","code":"als"},
 {"lang":"Amharic","code":"am"},
 {"lang":"Amis","code":"ami"},
 {"lang":"Angika","code":"anp"},
 {"lang":"Arabic","code":"ar"},
 {"lang":"Aragonese","code":"an"},
-{"lang":"Aramaic(Syriac)","code":"arc"},
+{"lang":"Aramaic (Syriac)","code":"arc"},
 {"lang":"Armenian","code":"hy"},
 {"lang":"Aromanian","code":"roa-rup"},
 {"lang":"Assamese","code":"as"},
@@ -206,8 +226,8 @@ const listOfWikipedias = [
 {"lang":"Bashkir","code":"ba"},
 {"lang":"Basque","code":"eu"},
 {"lang":"Bavarian","code":"bar"},
-{"lang":"Belarusian(officialNarkamaŭkaorthography)","code":"be"},
-{"lang":"Belarusian(Taraškievicaorthography)","code":"be-tarask"},
+{"lang":"Belarusian (official Narkamaŭka orthography)","code":"be"},
+{"lang":"Belarusian (Taraškievica orthography)","code":"be-tarask"},
 {"lang":"Bengali","code":"bn"},
 {"lang":"Betawi","code":"bew"},
 {"lang":"Bihari(Bhojpuri)","code":"bh"},
@@ -229,13 +249,13 @@ const listOfWikipedias = [
 {"lang":"Cherokee","code":"chr"},
 {"lang":"Chewa","code":"ny"},
 {"lang":"Cheyenne","code":"chy"},
-{"lang":"Chinese(writtenvernacularChinese)","code":"zh"},
+{"lang":"Chinese (written vernacular Chinese)","code":"zh"},
 {"lang":"Chuvash","code":"cv"},
-{"lang":"ClassicalChinese","code":"zh-classical"},
+{"lang":"Classical Chinese","code":"zh-classical"},
 {"lang":"Cornish","code":"kw"},
 {"lang":"Corsican","code":"co"},
 {"lang":"Cree","code":"cr"},
-{"lang":"CrimeanTatar","code":"crh"},
+{"lang":"Crimean Tatar","code":"crh"},
 {"lang":"Croatian","code":"hr"},
 {"lang":"Czech","code":"cs"},
 {"lang":"Dagaare","code":"dga"},
@@ -244,10 +264,10 @@ const listOfWikipedias = [
 {"lang":"Dinka","code":"din"},
 {"lang":"Doteli","code":"dty"},
 {"lang":"Dutch","code":"nl"},
-{"lang":"DutchLowSaxon","code":"nds-nl"},
+{"lang":"Dutch Low Saxon","code":"nds-nl"},
 {"lang":"Dzongkha","code":"dz"},
-{"lang":"EasternMin","code":"cdo"},
-{"lang":"EgyptianArabic","code":"arz"},
+{"lang":"Eastern Min","code":"cdo"},
+{"lang":"Egyptian Arabic","code":"arz"},
 {"lang":"Emilian–Romagnol","code":"eml"},
 {"lang":"English","code":"en"},
 {"lang":"Erzya","code":"myv"},
@@ -256,7 +276,7 @@ const listOfWikipedias = [
 {"lang":"Ewe","code":"ee"},
 {"lang":"Extremaduran","code":"ext"},
 {"lang":"Fante","code":"fat"},
-{"lang":"Farefare(Gurene)","code":"gur"},
+{"lang":"Farefare (Gurene)","code":"gur"},
 {"lang":"Faroese","code":"fo"},
 {"lang":"FijiHindi","code":"hif"},
 {"lang":"Fijian","code":"fj"},
@@ -264,7 +284,7 @@ const listOfWikipedias = [
 {"lang":"Fon","code":"fon"},
 {"lang":"Franco-Provençal","code":"frp"},
 {"lang":"French","code":"fr"},
-{"lang":"FrenchGuianeseCreole","code":"gcr"},
+{"lang":"French Guianese Creole","code":"gcr"},
 {"lang":"Friulian","code":"fur"},
 {"lang":"Fula","code":"ff"},
 {"lang":"Gagauz","code":"gag"},
@@ -272,7 +292,7 @@ const listOfWikipedias = [
 {"lang":"GanChinese","code":"gan"},
 {"lang":"Georgian","code":"ka"},
 {"lang":"German","code":"de"},
-{"lang":"GhanaianPidginEnglish","code":"gpe"},
+{"lang":"Ghanaian Pidgin English","code":"gpe"},
 {"lang":"Gilaki","code":"glk"},
 {"lang":"Gorontalo","code":"gor"},
 {"lang":"Gothic","code":"got"},
@@ -281,21 +301,21 @@ const listOfWikipedias = [
 {"lang":"Guarani","code":"gn"},
 {"lang":"Gujarati","code":"gu"},
 {"lang":"Gun","code":"guw"},
-{"lang":"HaitianCreole","code":"ht"},
-{"lang":"HakkaChinese","code":"hak"},
+{"lang":"Haitian Creole","code":"ht"},
+{"lang":"Hakka Chinese","code":"hak"},
 {"lang":"Hausa","code":"ha"},
 {"lang":"Hawaiian","code":"haw"},
 {"lang":"Hebrew","code":"he"},
-{"lang":"HillMari","code":"mrj"},
+{"lang":"Hill Mari","code":"mrj"},
 {"lang":"Hindi","code":"hi"},
 {"lang":"Hungarian","code":"hu"},
-{"lang":"Ibanlanguage","code":"iba"},
+{"lang":"Iban language","code":"iba"},
 {"lang":"Icelandic","code":"is"},
 {"lang":"Ido","code":"io"},
 {"lang":"Igala","code":"igl"},
 {"lang":"Igbo","code":"ig"},
 {"lang":"Ilocano","code":"ilo"},
-{"lang":"InariSámi","code":"smn"},
+{"lang":"Inari Sámi","code":"smn"},
 {"lang":"Indonesian","code":"id"},
 {"lang":"Ingush","code":"inh"},
 {"lang":"Interlingua","code":"ia"},
@@ -304,7 +324,7 @@ const listOfWikipedias = [
 {"lang":"Iñupiaq","code":"ik"},
 {"lang":"Irish","code":"ga"},
 {"lang":"Italian","code":"it"},
-{"lang":"JamaicanPatois","code":"jam"},
+{"lang":"Jamaican Patois","code":"jam"},
 {"lang":"Japanese","code":"ja"},
 {"lang":"Javanese","code":"jv"},
 {"lang":"Judaeo-Spanish","code":"lad"},
@@ -312,7 +332,7 @@ const listOfWikipedias = [
 {"lang":"Kabiye","code":"kbp"},
 {"lang":"Kabyle","code":"kab"},
 {"lang":"Kadazandusun","code":"dtp"},
-{"lang":"KalmykOirat","code":"xal"},
+{"lang":"Kalmyk Oirat","code":"xal"},
 {"lang":"Kannada","code":"kn"},
 {"lang":"Kapampangan","code":"pam"},
 {"lang":"Karachay-Balkar","code":"krc"},
@@ -327,11 +347,11 @@ const listOfWikipedias = [
 {"lang":"Komi","code":"kv"},
 {"lang":"Komi-Permyak","code":"koi"},
 {"lang":"Kongo","code":"kg"},
-{"lang":"Konkani(GoanKonkani)","code":"gom"},
+{"lang":"Konkani (GoanKonkani)","code":"gom"},
 {"lang":"Korean","code":"ko"},
 {"lang":"Kotava","code":"avk"},
-{"lang":"Kurdish(Kurmanji)","code":"ku"},
-{"lang":"Kurdish(Sorani)","code":"ckb"},
+{"lang":"Kurdish (Kurmanji)","code":"ku"},
+{"lang":"Kurdish (Sorani)","code":"ckb"},
 {"lang":"Kusaal","code":"kus"},
 {"lang":"Kyrgyz","code":"ky"},
 {"lang":"Ladin","code":"lld"},
@@ -344,13 +364,13 @@ const listOfWikipedias = [
 {"lang":"Ligurian","code":"lij"},
 {"lang":"Limburgish","code":"li"},
 {"lang":"Lingala","code":"ln"},
-{"lang":"LinguaFrancaNova","code":"lfn"},
+{"lang":"Lingua Franca Nova","code":"lfn"},
 {"lang":"Lithuanian","code":"lt"},
 {"lang":"Livvi-Karelian","code":"olo"},
 {"lang":"Lojban","code":"jbo"},
 {"lang":"Lombard","code":"lmo"},
-{"lang":"LowGerman","code":"nds"},
-{"lang":"LowerSorbian","code":"dsb"},
+{"lang":"Low German","code":"nds"},
+{"lang":"Lower Sorbian","code":"dsb"},
 {"lang":"Luganda","code":"lg"},
 {"lang":"Luxembourgish","code":"lb"},
 {"lang":"Macedonian","code":"mk"},
@@ -361,7 +381,7 @@ const listOfWikipedias = [
 {"lang":"Malayalam","code":"ml"},
 {"lang":"Maldivian","code":"dv"},
 {"lang":"Maltese","code":"mt"},
-{"lang":"MandailingBatak","code":"btm"},
+{"lang":"Mandailing Batak","code":"btm"},
 {"lang":"Manx","code":"gv"},
 {"lang":"Māori","code":"mi"},
 {"lang":"Marathi","code":"mr"},
@@ -374,7 +394,7 @@ const listOfWikipedias = [
 {"lang":"Moksha","code":"mdf"},
 {"lang":"Mon","code":"mnw"},
 {"lang":"Mongolian","code":"mn"},
-{"lang":"MoroccanArabic","code":"ary"},
+{"lang":"Moroccan Arabic","code":"ary"},
 {"lang":"N'Ko","code":"nqo"},
 {"lang":"Nahuatl","code":"nah"},
 {"lang":"Navajo","code":"nv"},
@@ -382,40 +402,40 @@ const listOfWikipedias = [
 {"lang":"Nepali","code":"ne"},
 {"lang":"Newar","code":"new"},
 {"lang":"Nias","code":"nia"},
-{"lang":"NigerianPidgin","code":"pcm"},
+{"lang":"Nigerian Pidgin","code":"pcm"},
 {"lang":"Norfuk","code":"pih"},
 {"lang":"Norman","code":"nrm"},
-{"lang":"NorthFrisian","code":"frr"},
-{"lang":"NorthernSámi","code":"se"},
-{"lang":"NorthernSotho","code":"nso"},
-{"lang":"Norwegian(Bokmål)","code":"no"},
-{"lang":"Norwegian(Nynorsk)","code":"nn"},
+{"lang":"North Frisian","code":"frr"},
+{"lang":"Northern Sámi","code":"se"},
+{"lang":"Northern Sotho","code":"nso"},
+{"lang":"Norwegian (Bokmål)","code":"no"},
+{"lang":"Norwegian (Nynorsk)","code":"nn"},
 {"lang":"Novial","code":"nov"},
 {"lang":"Obolo","code":"ann"},
 {"lang":"Occitan","code":"oc"},
 {"lang":"Odia","code":"or"},
-{"lang":"OldChurchSlavonic","code":"cu"},
-{"lang":"OldEnglish","code":"ang"},
+{"lang":"Old Church Slavonic","code":"cu"},
+{"lang":"Old English","code":"ang"},
 {"lang":"Oromo","code":"om"},
 {"lang":"Ossetian","code":"os"},
 {"lang":"Pa'O","code":"blk"},
 {"lang":"Paiwan","code":"pwn"},
-{"lang":"PalatineGerman","code":"pfl"},
+{"lang":"Palatine German","code":"pfl"},
 {"lang":"Pali","code":"pi"},
 {"lang":"Pangasinan","code":"pag"},
 {"lang":"Papiamento","code":"pap"},
 {"lang":"Pashto","code":"ps"},
-{"lang":"PennsylvaniaDutch","code":"pdc"},
+{"lang":"Pennsylvania Dutch","code":"pdc"},
 {"lang":"Persian","code":"fa"},
 {"lang":"Picard","code":"pcd"},
 {"lang":"Piedmontese","code":"pms"},
 {"lang":"Polish","code":"pl"},
-{"lang":"PonticGreek","code":"pnt"},
+{"lang":"Pontic Greek","code":"pnt"},
 {"lang":"Portuguese","code":"pt"},
 {"lang":"Punjabi","code":"pa"},
-{"lang":"Quechua(SouthernQuechua)","code":"qu"},
+{"lang":"Quechua (SouthernQuechua)","code":"qu"},
 {"lang":"Ripuarian","code":"ksh"},
-{"lang":"Romani(VlaxRomani)","code":"rmy"},
+{"lang":"Romani (Vlax Romani)","code":"rmy"},
 {"lang":"Romanian","code":"ro"},
 {"lang":"Romansh","code":"rm"},
 {"lang":"Russian","code":"ru"},
@@ -428,9 +448,9 @@ const listOfWikipedias = [
 {"lang":"Santali","code":"sat"},
 {"lang":"Saraiki","code":"skr"},
 {"lang":"Sardinian","code":"sc"},
-{"lang":"SaterlandFrisian","code":"stq"},
+{"lang":"Saterland Frisian","code":"stq"},
 {"lang":"Scots","code":"sco"},
-{"lang":"ScottishGaelic","code":"gd"},
+{"lang":"Scottish Gaelic","code":"gd"},
 {"lang":"Seediq","code":"trv"},
 {"lang":"Serbian","code":"sr"},
 {"lang":"Serbo-Croatian","code":"sh"},
@@ -439,20 +459,20 @@ const listOfWikipedias = [
 {"lang":"Shona","code":"sn"},
 {"lang":"Sicilian","code":"scn"},
 {"lang":"Silesian","code":"szl"},
-{"lang":"SimpleEnglish","code":"simple"},
+{"lang":"Simple English","code":"simple"},
 {"lang":"Sindhi","code":"sd"},
 {"lang":"Sinhala","code":"si"},
 {"lang":"Slovak","code":"sk"},
 {"lang":"Slovene","code":"sl"},
 {"lang":"Somali","code":"so"},
 {"lang":"Sotho","code":"st"},
-{"lang":"SouthAzerbaijani","code":"azb"},
-{"lang":"SouthernAltai","code":"alt"},
-{"lang":"SouthernMin","code":"zh-min-nan"},
-{"lang":"SouthernNdebele","code":"nr"},
+{"lang":"South Azerbaijani","code":"azb"},
+{"lang":"Southern Altai","code":"alt"},
+{"lang":"Southern Min","code":"zh-min-nan"},
+{"lang":"Southern Ndebele","code":"nr"},
 {"lang":"Spanish","code":"es"},
-{"lang":"SrananTongo","code":"srn"},
-{"lang":"StandardMoroccanAmazigh","code":"zgh"},
+{"lang":"Sranan Tongo","code":"srn"},
+{"lang":"Standard Moroccan Amazigh","code":"zgh"},
 {"lang":"Sundanese","code":"su"},
 {"lang":"Swahili","code":"sw"},
 {"lang":"Swazi","code":"ss"},
@@ -497,21 +517,21 @@ const listOfWikipedias = [
 {"lang":"Waray","code":"war"},
 {"lang":"Wayuu","code":"guc"},
 {"lang":"Welsh","code":"cy"},
-{"lang":"WestCoastBajau","code":"bdr"},
-{"lang":"WestFlemish","code":"vls"},
-{"lang":"WestFrisian","code":"fy"},
-{"lang":"WesternArmenian","code":"hyw"},
-{"lang":"WesternPunjabi","code":"pnb"},
+{"lang":"West Coast Bajau","code":"bdr"},
+{"lang":"West Flemish","code":"vls"},
+{"lang":"West Frisian","code":"fy"},
+{"lang":"Western Armenian","code":"hyw"},
+{"lang":"Western Punjabi","code":"pnb"},
 {"lang":"Wolof","code":"wo"},
-{"lang":"WuChinese","code":"wuu"},
+{"lang":"Wu Chinese","code":"wuu"},
 {"lang":"Xhosa","code":"xh"},
 {"lang":"Yakut","code":"sah"},
 {"lang":"Yiddish","code":"yi"},
 {"lang":"Yoruba","code":"yo"},
-{"lang":"ZamboangaChavacano","code":"cbk-zam"},
+{"lang":"Zamboanga Chavacano","code":"cbk-zam"},
 {"lang":"Zaza","code":"diq"},
 {"lang":"Zeelandic","code":"zea"},
-{"lang":"Zhuang(StandardZhuang)","code":"za"},
+{"lang":"Zhuang (Standard Zhuang)","code":"za"},
 {"lang":"Zulu","code":"zu"}
 ];
 
