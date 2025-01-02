@@ -74,7 +74,7 @@
 				<div>
 				<template x-for="(search, index) in fetch_result.query.search" :key="index">
 					<div>
-						<h4 x-text="search.title"></h4>
+						<h4><a :href="'https://' + selected_locale + '.wikipedia.org/?curid=' + search.pageid" x-text="search.title" target="_blank"></a></h4>
 						<p x-html="search.snippet"></p>
 						<hr>
 					</div>
@@ -121,6 +121,8 @@ function alpineInstance() {
 			return fetch( this.wikipedia_address_locale + this.search + '&srwhat=text&origin=*' )
 				.then(response => response.json())
 				.then(data => {
+					console.log('data', data);
+					
 					this.error = false;
 
 					if (data.hasOwnProperty('error')) { // Handle wikipedia returned error state
