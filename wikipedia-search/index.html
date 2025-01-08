@@ -13,8 +13,8 @@
 <body>
 
 <div class="main">
-<h3>Language examples from Wikipedia</h3> 
 
+<h3>Language examples from Wikipedia</h3> 
 
 <div x-data="alpineInstance()">
 
@@ -34,7 +34,9 @@
 		</ul>
 	</nav>
 
-	<p class="" x-show="savedLanguages.length > '0'"><small><a @click="clearLocalStorage" href="#">Clear recently searched languages</a></small></p>
+	<p x-show="savedLanguages.length > '0'">
+		<small><a @click="clearLocalStorage" href="#">Clear recently searched languages</a></small>
+	</p>
 
 	<p>Select Wikipedia Language</p>
 
@@ -43,14 +45,14 @@
 		placeholder="Filter languages" 
 		x-model="searchLanguages" 
 		class="border p-2 rounded mb-4"
-		@input="filterOptions()"
+		@input="filterLanguagesSelect()"
 	/>
 	<span>&#8680;</span>	
 	<select x-model="selected_locale" x-on:change="setWikipediaAddressLocale()">
 		<option value="" disabled>Select a language</option>
 		<!-- Decide to show complete or filtered list of languages -->
-		<template x-for="wiki in filteredListOfWikipedias" :key="wiki.code">
-			<option :selected="wiki.code == selected_locale" :value="wiki.code" x-text="wiki.lang"></option>
+		<template x-for="locale in filteredListOfWikipedias" :key="locale.code">
+			<option :selected="locale.code == selected_locale" :value="locale.code" x-text="locale.lang"></option>
 		</template>
 	</select>
 	
@@ -106,7 +108,6 @@ function alpineInstance() {
 		listOfWikipedias: listOfWikipedias,
 		filteredListOfWikipedias: listOfWikipedias,
 		savedLanguages: JSON.parse(localStorage.getItem('savedLanguages')) || [],
-		selected_locale_ref: '',
 		error: false,
 		errors: {
 			WIKIP_ERR: "There was an error retrieving the results from WikiPedia.",
@@ -137,7 +138,7 @@ function alpineInstance() {
 				}
 			);
 		},
-		filterOptions() {
+		filterLanguagesSelect() {
 			if (this.searchLanguages.trim() === '') {
 				// Set defaults
 				this.filteredListOfWikipedias = listOfWikipedias;
@@ -176,8 +177,8 @@ function alpineInstance() {
 			this.savedLanguages = [];
 		},
 		getLanguageName(code) {
-			const lang = this.listOfWikipedias.find(wiki => wiki.code === code);
-			return lang ? lang.lang : 'Error: Unknown language';
+			const locale = this.listOfWikipedias.find(wikiLocale => wikiLocale.code === code);
+			return locale ? locale.lang : 'Error: Unknown language';
 		},
 		setWikipediaAddressLocale() {
 			if (this.selected_locale === '') {
