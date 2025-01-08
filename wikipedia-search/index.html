@@ -22,7 +22,6 @@
 
 	<nav>
 		<ul>
-			<!-- Iterate savedLanguages and show as li buttons -->
 			<template x-for="lang in savedLanguages" :key="lang.selected_locale">
 				<li 
 					x-on:click="
@@ -47,7 +46,7 @@
 		@input="filterOptions()"
 	/>
 	<span>&#8680;</span>	
-	<select x-ref="selected_locale_ref" x-model="selected_locale" x-on:change="setWikipediaAddressLocale()">
+	<select x-model="selected_locale" x-on:change="setWikipediaAddressLocale()">
 		<option value="" disabled>Select a language</option>
 		<!-- Decide to show complete or filtered list of languages -->
 		<template x-for="wiki in filteredListOfWikipedias" :key="wiki.code">
@@ -129,7 +128,7 @@ function alpineInstance() {
 						return (this.error = this.errors.WIKIP_ERR);
 					}
 
-					this.updateWikipediaAddressLocale();
+					this.saveToLocalStorage();
 					return (this.fetch_result = data);
 				})
 				.catch(error => {
@@ -159,13 +158,7 @@ function alpineInstance() {
 				}
 			}
 		},
-		updateWikipediaAddressLocale() {
-            this.selected_locale = this.$refs.selected_locale_ref.value;
-			this.wikipedia_address_locale = 'https://' + this.selected_locale + '.wikipedia.org/w/api.php?action=query&format=json&list=search&srlimit=500&srsearch=';
-			this.saveToLocalStorage();
-        },
 		saveToLocalStorage() {
-			// let savedLanguages = JSON.parse(localStorage.getItem('savedLanguages')) || [];
 			const newLanguage = {
 				selected_locale: this.selected_locale,
 				wikipedia_address_locale: this.wikipedia_address_locale
