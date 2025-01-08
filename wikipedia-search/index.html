@@ -22,13 +22,11 @@
 
 	<nav>
 		<ul>
-			<template x-for="lang in savedLanguages" :key="lang.selected_locale">
+			<template x-for="savedLang in savedLanguages" :key="savedLang.code">
 				<li 
-					x-on:click="
-						selected_locale = lang.selected_locale; 
-						wikipedia_address_locale = lang.wikipedia_address_locale;" 
-					x-bind:class="{ 'language-selector-active': selected_locale === lang.selected_locale }">
-					<span x-text="getLanguageName(lang.selected_locale)"></span>
+					x-on:click="setLocal(savedLang.code);" 
+					x-bind:class="{ 'language-selector-active': current_language_selection.code === savedLang.code }">
+					<span x-text="savedLang.lang"></span>
 				</li>
 			</template>
 		</ul>
@@ -48,17 +46,15 @@
 		@input="filterLanguagesSelect()"
 	/>
 	<span>&#8680;</span>	
-	<select x-model="selected_locale" x-on:change="setWikipediaAddressLocale()">
+	<select x-model="current_language_selection.code">
 		<option value="" disabled>Select a language</option>
 		<!-- Decide to show complete or filtered list of languages -->
-		<template x-for="locale in filteredListOfWikipedias" :key="locale.code">
-			<option :selected="locale.code == selected_locale" :value="locale.code" x-text="locale.lang"></option>
+		<template x-for="wikiLocale in filteredListOfWikipedias" :key="wikiLocale.code">
+			<option :selected="wikiLocale.code == current_language_selection.code" :value="wikiLocale.code" x-text="wikiLocale.lang"></option>
 		</template>
 	</select>
 	
 	<p>Search for a word "or phrase" and hit return.</p>
-
-	<!-- <p>Debug: <span x-text="selected_locale"></span></p> -->
 
 	<form x-on:submit.prevent="fetchData">
 		<input x-model="search" type="text">
@@ -75,7 +71,7 @@
 				<div>
 				<template x-for="(search, index) in fetch_result.query.search" :key="index">
 					<div>
-						<h4><a :href="'https://' + selected_locale + '.wikipedia.org/?curid=' + search.pageid" x-text="search.title" target="_blank"></a></h4>
+						<h4><a :href="'https://' + current_language_selection.code + '.wikipedia.org/?curid=' + search.pageid" x-text="search.title" target="_blank"></a></h4>
 						<p x-html="search.snippet"></p>
 						<hr>
 					</div>
@@ -84,13 +80,15 @@
 			</div>
 		</div>
 	</template>
+
 	<template x-if="error">
 		<p>
-			<span>Error:</span>
+			<span style="color: red;"><strong>Error:</strong></span>
 			<span x-text="error"></span>
 		</p>
 	</template>
 
+	<!-- <p>Debug: <span x-text="wikipedia_address_locale"></span></p> -->
 
 </div>
 
@@ -100,25 +98,41 @@ function alpineInstance() {
 	return {
 		search: '',
 		searchLanguages: '',
-		// selected_locale: 'ia',
 		// wikipedia_address_locale: 'https://ia.wikipedia.org/w/api.php?action=query&format=json&list=search&srlimit=500&srsearch=',
-		selected_locale: '',
 		wikipedia_address_locale: '',
 		fetch_result: { query: { searchinfo: { totalhits: 0 } } },
 		listOfWikipedias: listOfWikipedias,
 		filteredListOfWikipedias: listOfWikipedias,
-		savedLanguages: JSON.parse(localStorage.getItem('savedLanguages')) || [],
+		savedLanguages: JSON.parse(localStorage.getItem('savedLanguages_version2')) || [],
+		current_language_selection: this.savedLanguages?.[0] || {code: '', lang: ''}, // or if last saved language from savedLanguages, use length - 1
 		error: false,
 		errors: {
 			WIKIP_ERR: "There was an error retrieving the results from WikiPedia.",
-			FETCH_ERR: "There was an error connecting to the WikiPedia.",
-			SELECTED_LOCAL_MISSING: "Language not found."
+			FETCH_ERR: "There was an error sending the request to WikiPedia.",
+			SELECTED_LOCAL_MISSING: "Language not found.",
+			NO_SEARCH_TERM: "Please enter a search term.",
+			FAILED_TO_GENERATE_URL: "Failed to generate URL.",
 		},
 
 		fetchData: function () { 
-			this.setWikipediaAddressLocale();
+			if (this.current_language_selection.code === '') {
+				this.error = this.errors.SELECTED_LOCAL_MISSING;
+				return;
+			}
 
-			return fetch( this.wikipedia_address_locale + this.search + '&srwhat=text&origin=*' )
+			if (this.wikipedia_address_locale === '') {
+				this.error = this.errors.FAILED_TO_GENERATE_URL;
+				return;
+			}
+
+			if (this.search === '') {
+				this.error = this.errors.NO_SEARCH_TERM;
+				return;
+			}
+
+			const wikipediaRequestUrl = this.wikipedia_address_locale + this.search + '&srwhat=text&origin=*';
+			
+			return fetch( wikipediaRequestUrl )
 				.then(response => response.json())
 				.then(data => {
 					// console.log('data', data);
@@ -142,8 +156,7 @@ function alpineInstance() {
 			if (this.searchLanguages.trim() === '') {
 				// Set defaults
 				this.filteredListOfWikipedias = listOfWikipedias;
-				this.selected_locale = ''; 
-				this.wikipedia_address_locale = '';
+				this.setLocal('');
 			} 
 			else {
 				const matches = this.listOfWikipedias.filter(option =>
@@ -153,45 +166,45 @@ function alpineInstance() {
 
 				// Automatically select the first match if found
 				if (matches.length > 0) {
-					this.selected_locale = matches[0].code;
+					this.setLocal(matches[0].code);
 				} else {
-					this.selected_locale = ''; // Revert to default
+					this.setLocal('');
 				}
 			}
 		},
+		setLocal(code) {
+			if (code === '') {
+				this.current_language_selection.code = '';
+				this.current_language_selection.lang = '';
+				return;
+			}
+
+			this.current_language_selection.code = code;
+			this.current_language_selection.lang = this.getLanguageName(code);
+			this.wikipedia_address_locale = 'https://' + code + '.wikipedia.org/w/api.php?action=query&format=json&list=search&srlimit=500&srsearch=';
+		},
 		saveToLocalStorage() {
-			const newLanguage = {
-				selected_locale: this.selected_locale,
-				wikipedia_address_locale: this.wikipedia_address_locale
-			};
 			// Check if selected_locale already exists as a property value in savedLanguages
-			const index = this.savedLanguages.findIndex(lang => lang.selected_locale === this.selected_locale);
+			const index = this.savedLanguages.findIndex(lang => lang.code === this.current_language_selection.code);
 
 			if (index === -1) {
-				this.savedLanguages.push(newLanguage);
-				localStorage.setItem('savedLanguages', JSON.stringify(this.savedLanguages));
+				this.savedLanguages.push(this.current_language_selection);
+				localStorage.setItem('savedLanguages_version2', JSON.stringify(this.savedLanguages));
 			}
 		},
 		clearLocalStorage() {
-			localStorage.removeItem('savedLanguages');
+			localStorage.removeItem('savedLanguages_version2');
 			this.savedLanguages = [];
 		},
 		getLanguageName(code) {
 			const locale = this.listOfWikipedias.find(wikiLocale => wikiLocale.code === code);
 			return locale ? locale.lang : 'Error: Unknown language';
 		},
-		setWikipediaAddressLocale() {
-			if (this.selected_locale === '') {
-				this.error = this.errors.SELECTED_LOCAL_MISSING;
-				return;
-			}
-
-			this.wikipedia_address_locale = 'https://' + this.selected_locale + '.wikipedia.org/w/api.php?action=query&format=json&list=search&srlimit=500&srsearch=';
-		}, 
 		init() {
-			this.savedLanguages = JSON.parse(localStorage.getItem('savedLanguages')) || [];
-			this.selected_locale = this.savedLanguages?.[0]?.selected_locale || '';
-			this.wikipedia_address_locale = this.savedLanguages?.[0]?.wikipedia_address_locale || '';
+			// Set the default language selection if user has previously saved a language
+			const initSavedLanguages = JSON.parse(localStorage.getItem('savedLanguages_version2')) || [];			
+			const initCurrent_language_selection = initSavedLanguages?.[0] || {code: '', lang: ''};
+			this.setLocal(initCurrent_language_selection.code);
 		}
 	}
 }
