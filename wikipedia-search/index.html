@@ -24,7 +24,7 @@
 		<ul>
 			<template x-for="savedLang in savedLanguages" :key="savedLang.code">
 				<li 
-					x-on:click="setLocal(savedLang.code);" 
+					x-on:click="setLanguageLocale(savedLang.code);" 
 					x-bind:class="{ 'language-selector-active': current_language_selection.code === savedLang.code }">
 					<span x-text="savedLang.lang"></span>
 				</li>
@@ -103,8 +103,8 @@ function alpineInstance() {
 		fetch_result: { query: { searchinfo: { totalhits: 0 } } },
 		listOfWikipedias: listOfWikipedias,
 		filteredListOfWikipedias: listOfWikipedias,
-		savedLanguages: JSON.parse(localStorage.getItem('savedLanguages_version2')) || [],
-		current_language_selection: this.savedLanguages?.[0] || {code: '', lang: ''}, // or if last saved language from savedLanguages, use length - 1
+		// savedLanguages is set in init() 
+		// current_language_selection is set in init() 
 		error: false,
 		errors: {
 			WIKIP_ERR: "There was an error retrieving the results from WikiPedia.",
@@ -156,7 +156,7 @@ function alpineInstance() {
 			if (this.searchLanguages.trim() === '') {
 				// Set defaults
 				this.filteredListOfWikipedias = listOfWikipedias;
-				this.setLocal('');
+				this.setLanguageLocale('');
 			} 
 			else {
 				const matches = this.listOfWikipedias.filter(option =>
@@ -166,13 +166,13 @@ function alpineInstance() {
 
 				// Automatically select the first match if found
 				if (matches.length > 0) {
-					this.setLocal(matches[0].code);
+					this.setLanguageLocale(matches[0].code);
 				} else {
-					this.setLocal('');
+					this.setLanguageLocale('');
 				}
 			}
 		},
-		setLocal(code) {
+		setLanguageLocale(code) {
 			if (code === '') {
 				this.current_language_selection.code = '';
 				this.current_language_selection.lang = '';
@@ -202,9 +202,11 @@ function alpineInstance() {
 		},
 		init() {
 			// Set the default language selection if user has previously saved a language
-			const initSavedLanguages = JSON.parse(localStorage.getItem('savedLanguages_version2')) || [];			
-			const initCurrent_language_selection = initSavedLanguages?.[0] || {code: '', lang: ''};
-			this.setLocal(initCurrent_language_selection.code);
+			const initSavedLanguages = JSON.parse(localStorage.getItem('savedLanguages_version2')) || [];
+			const initCurrentLanguageSelection = initSavedLanguages?.[0] || {code: '', lang: ''};
+
+			this.current_language_selection = initCurrentLanguageSelection;
+			this.savedLanguages = initSavedLanguages;
 		}
 	}
 }
