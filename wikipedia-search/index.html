@@ -5,7 +5,7 @@
 	<meta http-equiv="X-UA-Compatible" content="IE=edge">
 	<meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-	<script defer src="../js/alpine.3.7.1.min.js"></script>
+	<script defer src="../js/alpine.3.14.8.min.js"></script>
 	<link rel="stylesheet" href="style.css?20250101">
 
 	<title>WikiP Search</title>
@@ -142,7 +142,7 @@ function alpineInstance() {
 			return fetch( wikipediaRequestUrl )
 				.then(response => response.json())
 				.then(data => {
-					console.log('data', data);
+					// console.log('data', data);
 					this.error = false;
 
 					if (data.hasOwnProperty('error')) { // Handle wikipedia returned error state
@@ -193,7 +193,7 @@ function alpineInstance() {
 			this.current_language_selection.lang = this.getLanguageName(codeUpdate);
 			this.wikipedia_address_locale = 'https://' + codeUpdate + '.wikipedia.org/w/api.php?action=query&format=json&list=search&srlimit=500&srsearch=';
 
-			console.log('current_language_selection', codeUpdate);
+			// console.log('current_language_selection', codeUpdate);
 		},
 		setSavedLanguageAsCurrent(code) {
 			this.current_language_code = code;
