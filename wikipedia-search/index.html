@@ -18,23 +18,25 @@
 
 <div x-data="alpineInstance()">
 
-	<p x-show="savedLanguages.length > '0'">Select recently searched</p>
+	<div x-show="savedLanguages.length > '0'">
+		<p>Select recently searched</p>
 
-	<nav>
-		<ul>
-			<template x-for="savedLang in savedLanguages" :key="savedLang.code">
-				<li 
-					x-on:click="setSavedLanguageAsCurrent(savedLang.code)" 
-					x-bind:class="{ 'language-selector-active': current_language_code === savedLang.code }">
-					<span x-text="savedLang.lang"></span>
-				</li>
-			</template>
-		</ul>
-	</nav>
-
-	<p x-show="savedLanguages.length > '0'">
-		<small><a @click="clearLocalStorage" href="#">Clear recently searched languages</a></small>
-	</p>
+		<nav>
+			<ul>
+				<template x-for="savedLang in savedLanguages" :key="savedLang.code">
+					<li 
+						x-on:click="setSavedLanguageAsCurrent(savedLang.code)" 
+						x-bind:class="{ 'language-selector-active': current_language_code === savedLang.code }">
+						<span x-text="savedLang.lang"></span>
+					</li>
+				</template>
+			</ul>
+		</nav>
+	
+		<p>
+			<small><a @click="clearLocalStorage" href="#">Clear recently searched languages</a></small>
+		</p>
+	</div>
 
 	<p>Select Wikipedia Language</p>
 
@@ -45,8 +47,10 @@
 		class="border p-2 rounded mb-4"
 		@input="filterLanguagesSelect()"
 	/>
+
 	<span>&#8680;</span>	
-	<select x-model="current_language_code" x-on:change="setCurrentLanguage()">
+	
+	<select x-model="current_language_code" x-on:change="setCurrentLanguage($event.target.value)">
 		<option value="" disabled>Select a language</option>
 		<!-- Decide to show complete or filtered list of languages -->
 		<template x-for="wikiLocale in filteredListOfWikipedias" :key="wikiLocale.code">
@@ -54,7 +58,7 @@
 		</template>
 	</select>
 	
-	<p>Search for a word "or phrase" and hit return.</p>
+	<p>Search for a word "or double quoted phrase" and hit return.</p>
 
 	<form x-on:submit.prevent="fetchData">
 		<input x-model="search" type="text">
@@ -98,11 +102,10 @@ function alpineInstance() {
 	return {
 		search: '',
 		searchLanguages: '',
-		// wikipedia_address_locale: 'https://ia.wikipedia.org/w/api.php?action=query&format=json&list=search&srlimit=500&srsearch=',
-		wikipedia_address_locale: '',
+		wikipedia_address_locale: '', // Example: 'https://ia.wikipedia.org/w/api.php?action=query&format=json&list=search&srlimit=500&srsearch=',
 		fetch_result: { query: { searchinfo: { totalhits: 0 } } },
 		listOfWikipedias: listOfWikipedias,
-		filteredListOfWikipedias: listOfWikipedias,
+		filteredListOfWikipedias: structuredClone(listOfWikipedias),
 		pageIdCode: '',
 		// savedLanguages is set in init() 
 		// current_language_selection is set in init() 
@@ -202,9 +205,11 @@ function alpineInstance() {
 			if (this.current_language_code === '') return;
 
 			// Check if selected_locale already exists as a property value in savedLanguages
-			const index = this.savedLanguages.findIndex(lang => lang.code === this.current_language_code);
+			// const index = this.savedLanguages.findIndex(lang => lang.code === this.current_language_code);
 
-			if (index === -1) { // Add new language
+			const currentLanguageExistsInSavedLanguages = this.savedLanguages.some(lang => lang.code === this.current_language_code);
+
+			if ( !currentLanguageExistsInSavedLanguages ) { // Add new language
 				this.setCurrentLanguage(); // Just in case
 				// !!! Create a new object for the current selection to avoid reference issues
 				const newLanguage = {
