@@ -24,8 +24,8 @@
 		<ul>
 			<template x-for="savedLang in savedLanguages" :key="savedLang.code">
 				<li 
-					x-on:click="setLanguageLocale(savedLang.code);" 
-					x-bind:class="{ 'language-selector-active': current_language_selection.code === savedLang.code }">
+					x-on:click="setPreviousLanguage(savedLang.code)" 
+					x-bind:class="{ 'language-selector-active': current_language_code === savedLang.code }">
 					<span x-text="savedLang.lang"></span>
 				</li>
 			</template>
@@ -46,11 +46,11 @@
 		@input="filterLanguagesSelect()"
 	/>
 	<span>&#8680;</span>	
-	<select x-model="current_language_selection.code" x-on:change="setLanguageLocale($event.target.value)">
+	<select x-model="current_language_code" x-on:change="setCurrentLanguage()">
 		<option value="" disabled>Select a language</option>
 		<!-- Decide to show complete or filtered list of languages -->
 		<template x-for="wikiLocale in filteredListOfWikipedias" :key="wikiLocale.code">
-			<option :selected="wikiLocale.code == current_language_selection.code" :value="wikiLocale.code" x-text="wikiLocale.lang"></option>
+			<option :selected="wikiLocale.code == current_language_code" :value="wikiLocale.code" x-text="wikiLocale.lang"></option>
 		</template>
 	</select>
 	
@@ -71,7 +71,7 @@
 				<div>
 				<template x-for="(search, index) in fetch_result.query.search" :key="index">
 					<div>
-						<h4><a :href="'https://' + current_language_selection.code + '.wikipedia.org/?curid=' + search.pageid" x-text="search.title" target="_blank"></a></h4>
+						<h4><a :href="'https://' + pageIdCode + '.wikipedia.org/?curid=' + search.pageid" x-text="search.title" target="_blank"></a></h4>
 						<p x-html="search.snippet"></p>
 						<hr>
 					</div>
@@ -103,8 +103,10 @@ function alpineInstance() {
 		fetch_result: { query: { searchinfo: { totalhits: 0 } } },
 		listOfWikipedias: listOfWikipedias,
 		filteredListOfWikipedias: listOfWikipedias,
+		pageIdCode: '',
 		// savedLanguages is set in init() 
 		// current_language_selection is set in init() 
+		// current_language_code is set in init()
 		error: false,
 		errors: {
 			WIKIP_ERR: "There was an error retrieving the results from WikiPedia.",
@@ -115,7 +117,9 @@ function alpineInstance() {
 		},
 
 		fetchData: function () { 
-			if (this.current_language_selection.code === '') {
+			this.setCurrentLanguage();
+
+			if (this.current_language_selection.code === '' || this.current_language_code === '') {
 				this.error = this.errors.SELECTED_LOCAL_MISSING;
 				return;
 			}
@@ -129,13 +133,13 @@ function alpineInstance() {
 				this.error = this.errors.NO_SEARCH_TERM;
 				return;
 			}
-
+			
 			const wikipediaRequestUrl = this.wikipedia_address_locale + this.search + '&srwhat=text&origin=*';
 			
 			return fetch( wikipediaRequestUrl )
 				.then(response => response.json())
 				.then(data => {
-					// console.log('data', data);
+					console.log('data', data);
 					this.error = false;
 
 					if (data.hasOwnProperty('error')) { // Handle wikipedia returned error state
@@ -144,6 +148,7 @@ function alpineInstance() {
 					}
 
 					this.saveToLocalStorage();
+					this.pageIdCode = this.current_language_code;
 					return (this.fetch_result = data);
 				})
 				.catch(error => {
@@ -156,7 +161,7 @@ function alpineInstance() {
 			if (this.searchLanguages.trim() === '') {
 				// Set defaults
 				this.filteredListOfWikipedias = listOfWikipedias;
-				this.setLanguageLocale('');
+				// Last language remaining in select dropdown remains as expected UX
 			} 
 			else {
 				const matches = this.listOfWikipedias.filter(option =>
@@ -166,34 +171,46 @@ function alpineInstance() {
 
 				// Automatically select the first match if found
 				if (matches.length > 0) {
-					this.setLanguageLocale(matches[0].code);
-				} else {
-					this.setLanguageLocale('');
-				}
+					this.current_language_code = matches[0].code;
+					this.setCurrentLanguage();
+				} 
 			}
 		},
-		setLanguageLocale(code) {
-			if (code === '') {
-				this.current_language_selection.code = '';
-				this.current_language_selection.lang = '';
+		setCurrentLanguage(code = '') {
+			const currentLanguageCode = this.current_language_code;
+			const codeUpdate = code || currentLanguageCode;
+
+			if (codeUpdate === '') {
+				this.current_language_selection = {code: '', lang: ''};
+				this.wikipedia_address_locale = '';
 				return;
 			}
 
-			this.current_language_selection.code = code;
-			this.current_language_selection.lang = this.getLanguageName(code);
-			this.wikipedia_address_locale = 'https://' + code + '.wikipedia.org/w/api.php?action=query&format=json&list=search&srlimit=500&srsearch=';
+			this.current_language_selection.code = codeUpdate;
+			this.current_language_selection.lang = this.getLanguageName(codeUpdate);
+			this.wikipedia_address_locale = 'https://' + codeUpdate + '.wikipedia.org/w/api.php?action=query&format=json&list=search&srlimit=500&srsearch=';
+
+			console.log('current_language_selection', codeUpdate);
+		},
+		setPreviousLanguage(code) {
+			this.current_language_code = code;
+			this.setCurrentLanguage();
+			this.searchLanguages = '';
+			this.filteredListOfWikipedias = this.listOfWikipedias;
 		},
 		saveToLocalStorage() {
-			// Check if selected_locale already exists as a property value in savedLanguages
-			const index = this.savedLanguages.findIndex(lang => lang.code === this.current_language_selection.code);
+			if (this.current_language_code === '') return;
 
-			if (index === -1) {
+			// Check if selected_locale already exists as a property value in savedLanguages
+			const index = this.savedLanguages.findIndex(lang => lang.code === this.current_language_code);
+
+			if (index === -1) { // Add new language
+				this.setCurrentLanguage(); // Just in case
 				// !!! Create a new object for the current selection to avoid reference issues
 				const newLanguage = {
 					code: this.current_language_selection.code,
 					lang: this.current_language_selection.lang
 				};
-				
 				this.savedLanguages.push(newLanguage); // Requires new reference (newLanguage), else current_language_selection will mutate the savedLanguages array when changes leading to a state mutation bug 
 				localStorage.setItem('savedLanguages_version2', JSON.stringify(this.savedLanguages));
 			}
@@ -209,11 +226,13 @@ function alpineInstance() {
 		init() {
 			let initSavedLanguages = JSON.parse(localStorage.getItem('savedLanguages_version2')) || [];		
 			this.savedLanguages = initSavedLanguages;
+			this.current_language_code = '';
 			this.current_language_selection = { code: '', lang: '' };
 			
 			if (initSavedLanguages?.[0] && initSavedLanguages[0].code) {
 				let langCode = initSavedLanguages[0].code;
-				this.setLanguageLocale(langCode);
+				this.current_language_code = langCode;
+				this.setCurrentLanguage();
 			}
 		}
 	}
