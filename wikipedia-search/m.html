@@ -12,6 +12,8 @@
 </head>
 <body>
 
+<div id="appRoot" class="main"></div>
+
 <script>
 
 const listOfWikipedias = [
@@ -353,31 +355,46 @@ const listOfWikipedias = [
 {"lang":"Zulu","code":"zu"}
 ];
 
-var root = document.body;
+var root = document.getElementById('appRoot');
 
 var App = {
 	search: '',
 	searchLanguages: '',
-	// selected_locale: 'ia',
 	// wikipedia_address_locale: 'https://ia.wikipedia.org/w/api.php?action=query&format=json&list=search&srlimit=500&srsearch=',
-	selected_locale: 'Select a language',
 	wikipedia_address_locale: '',
 	fetch_result: { query: { searchinfo: { totalhits: 0 } } },
 	listOfWikipedias: listOfWikipedias,
 	filteredListOfWikipedias: listOfWikipedias,
-	savedLanguages: (JSON.parse(localStorage.getItem('savedLanguages')) || []),
-	selected_locale_ref: '',
+	// savedLanguages is set in init() 
+	// current_language_selection is set in init() 
 	error: false,
 	errors: {
 		WIKIP_ERR: "There was an error retrieving the results from WikiPedia.",
-		FETCH_ERR: "There was an error connecting to the WikiPedia.",
-		SELECTED_LOCAL_MISSING: "Language not found."
+		FETCH_ERR: "There was an error sending the request to WikiPedia.",
+		SELECTED_LOCAL_MISSING: "Language not found.",
+		NO_SEARCH_TERM: "Please enter a search term.",
+		FAILED_TO_GENERATE_URL: "Failed to generate URL.",
 	},
 
 	fetchData: function () { 
-		App.setWikipediaAddressLocale();
+		if (App.current_language_selection.code === '') {
+			App.error = App.errors.SELECTED_LOCAL_MISSING;
+			return;
+		}
 
-		return fetch( App.wikipedia_address_locale + App.search + '&srwhat=text&origin=*' )
+		if (App.wikipedia_address_locale === '') {
+			App.error = App.errors.FAILED_TO_GENERATE_URL;
+			return;
+		}
+
+		if (App.search === '') {
+			App.error = App.errors.NO_SEARCH_TERM;
+			return;
+		}
+
+		const wikipediaRequestUrl = App.wikipedia_address_locale + App.search + '&srwhat=text&origin=*';
+		
+		return fetch( wikipediaRequestUrl )
 			.then(response => response.json())
 			.then(data => {
 				// console.log('data', data);
@@ -388,7 +405,7 @@ var App = {
 					return (App.error = App.errors.WIKIP_ERR);
 				}
 
-				App.updateWikipediaAddressLocale();
+				App.saveToLocalStorage();
 				return (App.fetch_result = data);
 			})
 			.catch(error => {
@@ -397,12 +414,11 @@ var App = {
 			}
 		);
 	},
-	filterOptions: function () {
+	filterLanguagesSelect: function () {
 		if (App.searchLanguages.trim() === '') {
 			// Set defaults
 			App.filteredListOfWikipedias = listOfWikipedias;
-			App.selected_locale = ''; 
-			App.wikipedia_address_locale = '';
+			App.setLanguageLocale('');
 		} 
 		else {
 			const matches = App.listOfWikipedias.filter(option =>
@@ -412,47 +428,71 @@ var App = {
 
 			// Automatically select the first match if found
 			if (matches.length > 0) {
-				App.selected_locale = matches[0].code;
+				App.setLanguageLocale(matches[0].code);
 			} else {
-				App.selected_locale = ''; // Revert to default
+				App.setLanguageLocale('');
 			}
 		}
 	},
-	updateWikipediaAddressLocale: function () {
-	    App.selected_locale = App.$refs.selected_locale_ref.value;
-		App.wikipedia_address_locale = 'https://' + App.selected_locale + '.wikipedia.org/w/api.php?action=query&format=json&list=search&srlimit=500&srsearch=';
-		App.saveToLocalStorage();
-	},
-	saveToLocalStorage: function () {
-		// let savedLanguages = JSON.parse(localStorage.getItem('savedLanguages')) || [];
-		const newLanguage = {
-			selected_locale: App.selected_locale,
-			wikipedia_address_locale: App.wikipedia_address_locale
-		};
-		// Check if selected_locale already exists as a property value in savedLanguages
-		const index = App.savedLanguages.findIndex(lang => lang.selected_locale === App.selected_locale);
-
-		if (index === -1) {
-			App.savedLanguages.push(newLanguage);
-			localStorage.setItem('savedLanguages', JSON.stringify(App.savedLanguages));
-		}
-	},
-	clearLocalStorage: function () {
-		localStorage.removeItem('savedLanguages');
-		App.savedLanguages = [];
-	},
-	getLanguageName: function(code) {
-		const lang = App.listOfWikipedias.find(wiki => wiki.code === code);
-		return lang ? lang.lang : 'Error: Unknown language';
-	},
-	setWikipediaAddressLocale: function () {
-		if (App.selected_locale === '') {
-			App.error = App.errors.SELECTED_LOCAL_MISSING;
+	setLanguageLocale: function (code) {
+		if (code === '') {
+			App.current_language_selection.code = '';
+			App.current_language_selection.lang = '';
 			return;
 		}
 
-		App.wikipedia_address_locale = 'https://' + App.selected_locale + '.wikipedia.org/w/api.php?action=query&format=json&list=search&srlimit=500&srsearch=';
+		App.current_language_selection.code = code;
+		App.current_language_selection.lang = App.getLanguageName(code);
+		App.wikipedia_address_locale = 'https://' + code + '.wikipedia.org/w/api.php?action=query&format=json&list=search&srlimit=500&srsearch=';
 	},
+	saveToLocalStorage: function () {
+		// Check if selected_locale already exists as a property value in savedLanguages
+		const index = App.savedLanguages.findIndex(lang => lang.code === App.current_language_selection.code);
+
+		// Create a new object for the current selection to avoid reference issues
+		const newLanguage = {
+			code: App.current_language_selection.code,
+			lang: App.current_language_selection.lang
+		};
+
+		if (index === -1) {
+			App.savedLanguages.push(newLanguage);
+			localStorage.setItem('savedLanguages_version2', JSON.stringify(App.savedLanguages));
+		}	
+
+		// NEW
+
+		// Check if selected_locale already exists as a property value in savedLanguages
+		// const index = App.savedLanguages.findIndex(lang => lang.code === App.current_language_selection.code);
+		
+		// if (index === -1) {
+		// 	// Create a new object for the current selection to avoid reference issues
+		// 	const newLanguage = {
+		// 		code: App.current_language_selection.code,
+		// 		lang: App.current_language_selection.lang
+		// 	};
+			
+		// 	// Update both the App state and localStorage
+		// 	App.savedLanguages = [...App.savedLanguages, newLanguage];
+		// 	localStorage.setItem('savedLanguages_version2', JSON.stringify(App.savedLanguages));
+		// }
+	},
+	clearLocalStorage: function () {
+		localStorage.removeItem('savedLanguages_version2');
+		App.savedLanguages = [];
+	},
+	getLanguageName: function (code) {
+		const locale = App.listOfWikipedias.find(wikiLocale => wikiLocale.code === code);
+		return locale ? locale.lang : 'Error: Unknown language';
+	},
+	// init: function () {
+	// 	// Set the default language selection if user has previously saved a language
+	// 	const initSavedLanguages = JSON.parse(localStorage.getItem('savedLanguages_version2')) || [];
+	// 	const initCurrentLanguageSelection = initSavedLanguages?.[0] || {code: '', lang: ''};
+
+	// 	App.current_language_selection = initCurrentLanguageSelection;
+	// 	App.savedLanguages = initSavedLanguages;
+	// },
 	oninit: function (vnode) {
 		let tmp = [
 			// {
@@ -464,42 +504,72 @@ var App = {
 			// 	"wikipedia_address_locale": "https://ady.wikipedia.org/w/api.php?action=query&format=json&list=search&srlimit=500&srsearch="
 			// }
 		];
-		App.savedLanguages = JSON.parse(localStorage.getItem('savedLanguages')) || tmp;
-		App.selected_locale = App.savedLanguages.length > 0 ? App.savedLanguages[0].selected_locale : '';
-		App.wikipedia_address_locale = App.savedLanguages.length > 0 ? App.savedLanguages[0].wikipedia_address_locale : '';
+		// App.savedLanguages = JSON.parse(localStorage.getItem('savedLanguages')) || tmp;
+		// App.selected_locale = App.savedLanguages.length > 0 ? App.savedLanguages[0].selected_locale : '';
+		// App.wikipedia_address_locale = App.savedLanguages.length > 0 ? App.savedLanguages[0].wikipedia_address_locale : '';
+
+		// OLD
+		// Set the default language selection if user has previously saved a language
+		// let initSavedLanguages = JSON.parse(localStorage.getItem('savedLanguages_version2')) || [];
+
+		// App.current_language_selection = {code: '', lang: ''};
+
+		// if (initSavedLanguages?.[0] && initSavedLanguages[0].code) {
+		// 	App.setLanguageLocale(initSavedLanguages[0].code);
+		// }
+
+		// App.savedLanguages = initSavedLanguages;
+
+		// NEW
+		let initSavedLanguages = JSON.parse(localStorage.getItem('savedLanguages_version2')) || [];
+		
+		// Create a deep copy of the array
+		App.savedLanguages = JSON.parse(JSON.stringify(initSavedLanguages));
+
+		App.current_language_selection = { code: '', lang: '' };
+		
+		if (initSavedLanguages?.[0] && initSavedLanguages[0].code) {
+			App.setLanguageLocale(initSavedLanguages[0].code);
+		}
 	},
 	view: function (vnode) {
 		return [
+			m('pre', 'savedLanguages: ' + JSON.stringify(App.savedLanguages)),
+			m('pre', 'db: ' + localStorage.getItem('savedLanguages_version2')),
+			m('pre', 'current selected: ' + App.current_language_selection.code + ' - ' + App.current_language_selection.lang),
+			m('pre', 'wp response: ' + JSON.stringify(App.fetch_result)),
+			
+
 			m('nav', 
 				m('ul', 
 					App.savedLanguages.map(lang => 
 						m('li', 
 							{
 								onclick: () => {
-									App.selected_locale = lang.selected_locale;
-									App.wikipedia_address_locale = lang.wikipedia_address_locale;
+									App.setLanguageLocale(lang.code);
+									// App.selected_locale = lang.selected_locale;
+									// App.wikipedia_address_locale = lang.wikipedia_address_locale;
 								},
-								class: App.selected_locale === lang.selected_locale ? 'language-selector-active' : ''
+								class: App.current_language_selection.code === lang.code ? 'language-selector-active' : ''
 							}, 
-							App.getLanguageName(lang.selected_locale)
+							lang.lang
 						)
 					)
 				)
 			),
+
 			m(
 				'p', 
 				m('a', { onclick: () => App.clearLocalStorage() }, 'Clear local storage')
 			),
-			m('pre', 'Debug: ' + JSON.stringify(App.savedLanguages)),
-			m('p', 'Debug: ' + App.selected_locale),
-			m('p', 'Debug: ' + App.wikipedia_address_locale),
 
 			m(
 				'select', 
 				{ 
 					onchange: function (e) {
-						App.selected_locale = e.target.value;
-						App.wikipedia_address_locale = 'https://' + App.selected_locale + '.wikipedia.org/w/api.php?action=query&format=json&list=search&srlimit=500&srsearch=';
+						App.setLanguageLocale(e.target.value);
+						// App.selected_locale = e.target.value;
+						// App.wikipedia_address_locale = 'https://' + App.selected_locale + '.wikipedia.org/w/api.php?action=query&format=json&list=search&srlimit=500&srsearch=';
 						App.saveToLocalStorage();
 					},
 				},
@@ -519,13 +589,26 @@ var App = {
 							'option', 
 							{ 
 								value: obj.code, 
-								selected: obj.code === App.selected_locale,
+								selected: obj.code === App.current_language_selection.code,
 							}, 
 							obj.lang
 						)
 					)
 				]
 			),
+
+			m('input', {
+				placeholder: 'Search Wikipedia',
+				value: App.search,
+				oninput: function (e) {
+					App.search = e.target.value;
+				},
+				onkeypress: function (e) {
+					if (e.key === 'Enter') {
+						App.fetchData();
+					}
+				}
+			}),
 		];
 	},
 };

@@ -5,7 +5,7 @@
 	<meta http-equiv="X-UA-Compatible" content="IE=edge">
 	<meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-	<script defer src="../js/alpine.3.14.8.min.js"></script>
+	<script defer src="../js/alpine.3.7.1.min.js"></script>
 	<link rel="stylesheet" href="style.css?20250101">
 
 	<title>WikiP Search</title>
@@ -46,7 +46,7 @@
 		@input="filterLanguagesSelect()"
 	/>
 	<span>&#8680;</span>	
-	<select x-model="current_language_selection.code">
+	<select x-model="current_language_selection.code" x-on:change="setLanguageLocale($event.target.value)">
 		<option value="" disabled>Select a language</option>
 		<!-- Decide to show complete or filtered list of languages -->
 		<template x-for="wikiLocale in filteredListOfWikipedias" :key="wikiLocale.code">
@@ -188,7 +188,13 @@ function alpineInstance() {
 			const index = this.savedLanguages.findIndex(lang => lang.code === this.current_language_selection.code);
 
 			if (index === -1) {
-				this.savedLanguages.push(this.current_language_selection);
+				// !!! Create a new object for the current selection to avoid reference issues
+				const newLanguage = {
+					code: this.current_language_selection.code,
+					lang: this.current_language_selection.lang
+				};
+				
+				this.savedLanguages.push(newLanguage); // Requires new reference (newLanguage), else current_language_selection will mutate the savedLanguages array when changes leading to a state mutation bug 
 				localStorage.setItem('savedLanguages_version2', JSON.stringify(this.savedLanguages));
 			}
 		},
@@ -201,12 +207,14 @@ function alpineInstance() {
 			return locale ? locale.lang : 'Error: Unknown language';
 		},
 		init() {
-			// Set the default language selection if user has previously saved a language
-			const initSavedLanguages = JSON.parse(localStorage.getItem('savedLanguages_version2')) || [];
-			const initCurrentLanguageSelection = initSavedLanguages?.[0] || {code: '', lang: ''};
-
-			this.current_language_selection = initCurrentLanguageSelection;
+			let initSavedLanguages = JSON.parse(localStorage.getItem('savedLanguages_version2')) || [];		
 			this.savedLanguages = initSavedLanguages;
+			this.current_language_selection = { code: '', lang: '' };
+			
+			if (initSavedLanguages?.[0] && initSavedLanguages[0].code) {
+				let langCode = initSavedLanguages[0].code;
+				this.setLanguageLocale(langCode);
+			}
 		}
 	}
 }
