@@ -24,7 +24,7 @@
 		<ul>
 			<template x-for="savedLang in savedLanguages" :key="savedLang.code">
 				<li 
-					x-on:click="setPreviousLanguage(savedLang.code)" 
+					x-on:click="setSavedLanguageAsCurrent(savedLang.code)" 
 					x-bind:class="{ 'language-selector-active': current_language_code === savedLang.code }">
 					<span x-text="savedLang.lang"></span>
 				</li>
@@ -192,7 +192,7 @@ function alpineInstance() {
 
 			console.log('current_language_selection', codeUpdate);
 		},
-		setPreviousLanguage(code) {
+		setSavedLanguageAsCurrent(code) {
 			this.current_language_code = code;
 			this.setCurrentLanguage();
 			this.searchLanguages = '';
